@@ -14,50 +14,50 @@
 # fits_c.txt: parameters with locking width/sidelobe and asymmetry free
 # fits_d.txt: parameters with locking sidelobe/asymmetry and width free
 # -------------------------------------------------------------
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Old recipe (Aug/2019)
-aotfwc  = [-2.18387e-7,5.82007e-4,21.8543]  # Sinc width
-aotfoc  = [-3.51707e-8,2.80952e-4,-0.4997]  # Baseline (offset)
-aotfsc  = [4.25071e-7,-2.24849e-3,4.24031]  # sidelobes factor
+files = os.listdir('aotf'); files.sort();
+fs=[]; ws=[]; ss=[]; aa=[]; os=[]
+for file in files:
+    if file[0:4]!='fit_': continue
+    fr = open('aotf/%s' % file,'r'); ln = fr.readline(); fr.close(); vs=ln.split()
+    fs.append(float(vs[0])); ws.append(float(vs[1])); ss.append(float(vs[2]));
+    aa.append(float(vs[3])); os.append(float(vs[4]))
+#Endfor
+
+# Perform the fits
+aotfwc = np.polyfit(fs, ws, 2); print(aotfwc)
+aotfsc = np.polyfit(fs, ss, 2); print(aotfsc)
+aotfac = np.polyfit(fs, aa, 2); print(aotfac)
+aotfoc = np.polyfit(fs, os, 2); print(aotfoc)
 
 # Fit/plot the results
-pl,ax = plt.subplots(1,3, figsize=(13, 4))
-data  = np.genfromtxt('aotf/fits_d.txt')
-aotfw = np.polyval(aotfwc,data[:,0])
-cfitw = np.polyfit(data[:,0],data[:,2], 2)
-fitw  = np.polyval(cfitw,data[:,0])
-ax[0].plot(data[:,0],data[:,2],'o',label='Data')
-ax[0].plot(data[:,0],aotfw,label='Old')
-ax[0].plot(data[:,0],fitw,label='New')
+pl,ax = plt.subplots(1,4, figsize=(14, 4))
+ax[0].plot(fs,ws,'o',label='Data')
+ax[0].plot(fs,np.polyval(aotfwc,fs),label='Fit')
 ax[0].set_xlabel('AOTF frequency [cm-1]')
 ax[0].set_ylabel('AOTF width [cm-1]')
 ax[0].legend()
-print(cfitw)
 
-data  = np.genfromtxt('aotf/fits_b.txt')
-aotfs = np.polyval(aotfsc,data[:,0])
-cfits = np.polyfit(data[:,0],data[:,3], 2)
-fits  = np.polyval(cfits,data[:,0])
-ax[1].plot(data[:,0],data[:,3],'o',label='Data')
-ax[1].plot(data[:,0],fits,label='New')
-ax[1].plot(data[:,0],data[:,3]*(1.0+data[:,4])/2.0,'o',label='Data Left+Right')
-ax[1].plot(data[:,0],aotfs,label='Old')
+ax[1].plot(fs,ss,'o',label='Data')
 ax[1].set_xlabel('AOTF frequency [cm-1]')
+ax[1].plot(fs,np.polyval(aotfsc,fs),label='Fit')
 ax[1].set_ylabel('Sidelobes factor')
 ax[1].legend()
-print(cfits)
 
-data  = np.genfromtxt('aotf/fits_c.txt')
-cfita = np.polyfit(data[:,0],data[:,4], 2)
-fita  = np.polyval(cfita,data[:,0])
-ax[2].plot(data[:,0],data[:,4],'o',label='Data')
-ax[2].plot(data[:,0],fita,label='New')
+ax[2].plot(fs,aa,'o',label='Data')
 ax[2].set_xlabel('AOTF frequency [cm-1]')
+ax[2].plot(fs,np.polyval(aotfac,fs),label='Fit')
 ax[2].set_ylabel('Asymmetry')
 ax[2].legend()
-print(cfita)
+
+ax[3].plot(fs,os,'o',label='Data')
+ax[3].set_xlabel('AOTF frequency [cm-1]')
+ax[3].plot(fs,np.polyval(aotfoc,fs),label='Fit')
+ax[3].set_ylabel('Offset')
+ax[3].legend()
 
 plt.tight_layout()
 plt.savefig('aotf/fits.png')
