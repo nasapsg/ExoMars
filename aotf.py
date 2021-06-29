@@ -19,10 +19,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
 # AOTF shape parameters
-aotfwc  = [ 9.33154576e-08, -7.43419001e-04,  2.19341615e+01] # Sinc width [cm-1 from AOTF frequency cm-1]
-aotfsc  = [ 2.64269728e-06, -1.52777596e-02,  2.42344034e+01] # sidelobes factor [scaler from AOTF frequency cm-1]
-aotfac  = [-1.31849405e-07,  6.68647829e-04,  6.12808927e-01] # Asymmetry factor [scaler from AOTF frequency cm-1]
-aotfoc  = [ 2.96456078e-07, -1.79137657e-03,  2.82722109e+00] # Offset [coefficients for AOTF frequency cm-1]
+aotfwc  = [-2.85452723e-07,  1.66652129e-03,  1.83411690e+01] # Sinc width [cm-1 from AOTF frequency cm-1]
+aotfsc  = [ 2.19386777e-06, -1.32919656e-02,  2.18425092e+01] # sidelobes factor [scaler from AOTF frequency cm-1]
+aotfac  = [-3.35834373e-10, -6.10622773e-05,  1.62642005e+00] # Asymmetry factor [scaler from AOTF frequency cm-1]
+aotfoc  = [ 1.55368929e-07, -8.21924887e-04,  1.28833327e+00] # Offset [coefficients for AOTF frequency cm-1]
 
 # Calibration coefficients (Liuzzi+2019 with updates in Aug/2019)
 cfaotf  = np.array([1.34082e-7, 0.1497089, 305.0604])        # Frequency of AOTF [cm-1 from kHz]
@@ -35,12 +35,13 @@ npix    = 30                                                 # Number of +/- pix
 forder  = 3                                                  # Polynomial order used to fit the baseline
 
 # Define auxliary functions
-def sinc(dx,width,lobe,asym):
+def sinc(dx,width,lobe,asym,offset):
 	sinc = (width*np.sin(np.pi*dx/width)/(np.pi*dx))**2.0
 	ind = (abs(dx)>width).nonzero()[0]
 	if len(ind)>0: sinc[ind] = sinc[ind]*lobe
 	ind = (dx<=-width).nonzero()[0]
 	if len(ind)>0: sinc[ind] = sinc[ind]*asym
+	sinc += offset/(2.0*norder + 1.0)
 	return sinc
 #End sinc-function
 
@@ -58,12 +59,12 @@ def model(solar, xmin, xmax, norder, aotff, aotfw, aotfs, aotfa, aotfo, blaze0, 
 		j1 = i1 + nsh; j2 = i2 + nsh
 		if j1<0 or j2>=solar.shape[0]: continue
 		ss = solar[j1:j2,1]
-		aotf = sinc(solar[j1:j2,0]-aotff, aotfw, aotfs, aotfa)
+		aotf = sinc(solar[j1:j2,0]-aotff, aotfw, aotfs, aotfa, aotfo)
 		if (i+ord)==lorder: spec[:,2] += ss*aotf; spec[:,4] += aotf
 		else: spec[:,3] += ss*aotf; spec[:,5] += aotf
 		spec[:,1] += ss*aotf
 	#Endfor
-	for i in [1,3,5]: spec[:,i] += spec[:,i] + aotfo
+	#for i in [1,3,5]: spec[:,i] += spec[:,i] + aotfo
 
 	# Add ghost ILS
 	dfp = np.polyval([-2.4333526e-06,0.0018259633,-0.031606901],xpix)*(xmin+xmax)/(2.0*3700.0)
@@ -97,11 +98,11 @@ def maotf(x, *p):
 		spec0[:] = 0.0; spec[:] = 0.0;
 		for j in range(-norder,norder+1):
 			dx = dpix*(order + j) - freq
-			aotf = sinc(dx, wdt, sdl, asm)
+			aotf = sinc(dx, wdt, sdl, asm, off)
 			if (j+order)==lorder: spec0 += aotf
 			spec += aotf
 		#Endfor
-		spec += off
+		#spec += off
 		mm.append(np.mean(spec0)/np.mean(spec))
 	#Endfor
 
@@ -144,30 +145,31 @@ if False:
 #Endif
 
 # Iterate acros lines
-for il in range(13):
-	if il!=11: continue
+for il in range(14):
+	#if il<4: continue
 	# Line to characterize
 	fits = [True,True,True,True]
-	if il==0:  line = 2703.8; fits = [True,True,False,True]
-	if il==1:  line = 2733.3; fits = [True,True,False,True]
-	if il==2:  line = 2837.8; fits = [False,True,False,True]
+	if il==0:  line = 2703.8; fits[2] = False
+	if il==1:  line = 2733.3; fits[2] = False
+	if il==2:  line = 2837.8
 	if il==3:  line = 2927.1
-	if il==4:  line = 2942.5; fits = [False,False,False,True]
-	if il==5:  line = 3172.9; fits = [True,True,False,True]
-	if il==6:  line = 3289.6; fits = [False,False,False,True]
-	if il==7:  line = 3414.5; fits = [False,False,False,False]
-	if il==8:  line = 3650.9; fits = [False,False,False,True]
-	if il==9:  line = 3750.1; fits = [True,True,False,True]
-	if il==10: line = 3755.8
+	if il==4:  line = 2942.5; fits[0] = False; fits[2] = False
+	if il==5:  line = 3172.9
+	if il==6:  line = 3289.6
+	if il==7:  line = 3414.5; continue
+	if il==8:  line = 3650.9; fits[0] = False; fits[2] = False
+	if il==9:  line = 3750.1; fits[2] = False
+	if il==10: line = 3755.8; fits[2] = False
 	if il==11: line = 3787.9
-	if il==12: line = 4383.5
+	if il==12: line = 4276.1
+	if il==13: line = 4383.5
 
 	# Get Solar spectrum
 	if not os.path.isdir('aotf'): os.system('mkdir aotf')
 	file = 'aotf/solar_%d.txt' % line
 	if not os.path.exists(file):
-		server = 'http://localhost' # URL of PSG server (local)
-		#server = 'https://psg.gsfc.nasa.gov' # URL of PSG server
+		#server = 'http://localhost' # URL of PSG server (local)
+		server = 'https://psg.gsfc.nasa.gov' # URL of PSG server
 		fl = open("psg_solar.txt", "r"); cfg = fl.readlines(); fl.close()
 		cfg[0] = '<GENERATOR-RANGE1>%.1f\n' % (line - 150 - norder*23.0)
 		cfg[1] = '<GENERATOR-RANGE2>%.1f\n' % (line + 150 + norder*23.0)
@@ -195,8 +197,8 @@ for il in range(13):
 	inst = 'SO'; files = os.listdir(inst); files.sort(); xpeaks=[]; ypeaks=[]; mpeaks=[]; sets=[]; scans=[]; set=-1; scan=0
 	for file in files:
 		if file[-2:]!='h5': continue
-		#if os.path.exists(lfile): continue
-		if file!='20190307_004053_0p2a_SO_1_C.h5': continue
+		if os.path.exists(lfile): continue
+		#if file!='20190307_004053_0p2a_SO_1_C.h5': continue
 		year = int(file[:4])
 		hdf5f = h5py.File('%s/%s' % (inst,file), "r")
 		aotf = np.array(list(hdf5f['/Channel/AOTFFrequency']))
@@ -221,7 +223,7 @@ for il in range(13):
 			freq  = np.polyval(cfaotf,aotf[i])
 			freq += aotfts*mtempa*freq;
 			if freq<line-140 or freq>line+140: continue
-			if freq<lfreq and lfreq>0: continue
+			#if freq<lfreq and lfreq>0: continue
 			if freq<lfreq or lfreq==0: set += 1; scan = 0
 			order = round(freq/(np.polyval(cfpixel,160.0)))
 			ipix  = range(320)
@@ -260,7 +262,7 @@ for il in range(13):
 			# Determine the contribution from the center order
 			o0 = np.interp(xdat, smodel[:,0], smodel[:,2])
 			oo = np.interp(xdat, smodel[:,0], smodel[:,3])
-			cf,vm = curve_fit(contrib, xdat, ydat, p0=[1], bounds=[0.2,5])
+			cf,vm = curve_fit(contrib, xdat, ydat, p0=[1], bounds=[0.0,50])
 
 			if False:
 				mdat = np.interp(xdat, smodel[:,0], smodel[:,1])
@@ -278,8 +280,6 @@ for il in range(13):
 			mpeaks.append(np.mean(smodel[:,4]/(smodel[:,4] + smodel[:,5])))
 			sets.append(set); scans.append(scan); scan += 1
 		#Endfor
-
-		exit()
 	#Endfor
 	if len(xpeaks)>0:
 		data = np.zeros([len(xpeaks),5])
@@ -339,21 +339,23 @@ for il in range(13):
 	if not fits[3]: do1=aotfo-1e-6; do2=aotfo+1e-6
 	cf,vm = curve_fit(maotf, dt[:,2], dt[:,3], p0=[0.0,aotfw,aotfs,aotfa,aotfo], bounds=[[dc1,dw1,ds1,da1,do1],[dc2,dw2,ds2,da2,do2]])
 	#cf = [0.0,aotfw,aotfs,aotfa,aotfo]
+	#cf = [-0.74,20.12,5.24,1.40,1.26]
 	print(line, cf[0],cf[1],cf[2],cf[3],cf[4])
-	fl = open('aotf/fit_%d.txt' % line,'w'); fl.write('%.1f %.3f %.3f %.3f %.4f\n' % (line,cf[1],cf[2],cf[3],cf[4])); fl.close()
+	fl = open('aotf/fit_%d.txt' % line,'w'); fl.write('%.1f %.3f %.3f %.3f %.4f %d\n' % (line,cf[1],cf[2],cf[3],cf[4],lpix)); fl.close()
 
 	# Plot data
 	plt.cla()
 	for i in range(nsets): plt.plot(-data[i,0:nscans[i],0]-cf[0],data[i,0:nscans[i],1],linewidth=0.5)
 	cf[0] = 0.0; mm = maotf(dt[:,2], *cf)
 	plt.plot(-dt[:,2], mm, color='black', linewidth=2.0)
-	ms = sinc(dt[:,2]+cf[0],cf[1],cf[2],cf[3])
+	ms = sinc(dt[:,2]+cf[0],cf[1],cf[2],cf[3],cf[4])
 	ms *= np.max(mm)
 	plt.plot( dt[:,2], ms, color='blue', linestyle=':')
 	plt.xlim([-140,140])
 	plt.title('Line: %.1f Params: %.3f %.3f %.3f %.4f' % (line,cf[1],cf[2],cf[3],cf[4]))
 	plt.tight_layout()
 	plt.savefig('aotf/aotf_%d.png' % line)
+	#plt.show(); exit()
 	plt.show(block=False); plt.pause(0.1)
 #Endfor
 plt.show(block=False); plt.pause(5.0)
